@@ -1,0 +1,70 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/client" 
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// -----------------------------------------
+// YOUR ACTUAL TABLES
+// -----------------------------------------
+
+model User {
+  id                     String       @id @default(uuid())
+  email                  String       @unique
+  password_hash          String
+  full_name              String
+  age_group              String       
+  gender                 String?      
+  weekly_adherence_score Float        @default(0.0)
+  created_at             DateTime     @default(now())
+
+  medications            Medication[]
+  dose_logs              DoseLog[]
+  settings               Settings?
+}
+
+model Settings {
+  id                   String  @id @default(uuid())
+  user_id              String  @unique
+  medication_reminders Boolean @default(true)
+  sound_alerts         Boolean @default(true)
+  app_language         String  @default("EN")
+
+  user                 User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model Medication {
+  id             String    @id @default(uuid())
+  user_id        String
+  name           String    
+  type           String    
+  frequency      String    
+  reminder_times String[]  
+  is_active      Boolean   @default(true)
+  created_at     DateTime  @default(now())
+
+  user           User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  dose_logs      DoseLog[]
+}
+
+model DoseLog {
+  id                 String    @id @default(uuid())
+  medication_id      String
+  user_id            String
+  scheduled_datetime DateTime
+  status             String    @default("PENDING") 
+  taken_at           DateTime?
+
+  medication         Medication @relation(fields: [medication_id], references: [id], onDelete: Cascade)
+  user               User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
