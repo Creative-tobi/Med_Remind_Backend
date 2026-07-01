@@ -1,35 +1,33 @@
 import type { Request, Response } from "express";
-import { AuthRequest } from "../middleware/authmiddleware.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { PrismaClient } from "@prisma/client";
-// import  PrismaClient  from "../prisma/generated/client/index.js";
-// import { userInfo } from "node:os";
+import { AuthRequest } from "../middleware/authmiddleware.js";
 
 const prisma = new PrismaClient();
 
-//USER ACCOUNT REGISTRATION SETUP
 export const Register = async (req: Request, res: Response): Promise<any> => {
   try {
-    // task 1 destructuting model
-    const { email, password_hash, full_name, age_group, gender } = req.body;
+    const { email, password, full_name, age_group, gender } = req.body;
 
-    // task 2 checking if user already exist
+    if (!email || !password || !full_name) {
+      return res
+        .status(400)
+        .json({ error: "Email, password, and name are required." });
+    }
+
     const existingUser = await prisma.user.findUnique({
       where: { email: email },
     });
-
     if (existingUser) {
-      return res.status(400).json({
-        error: "An account with this email already exist",
-      });
+      return res
+        .status(400)
+        .json({ error: "An account with this email already exists" });
     }
 
-    // task 3 hashing password for new user
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password_hash, salt);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-    // saving new users to the database
     const newUser = await prisma.user.create({
       data: {
         email: email,
@@ -40,62 +38,47 @@ export const Register = async (req: Request, res: Response): Promise<any> => {
       },
     });
 
-    // const newUser = await prisma.user.create({data: userData});
-
     return res.status(201).json({
       message: "Registration successful.",
       user: { id: newUser.id, email: newUser.email },
     });
   } catch (error) {
-    console.error("Resgistration failed", error);
+    console.error("Registration failed", error);
     return res.status(500).json({ error: "Server error during registration" });
   }
 };
 
-//EXISTING USER LOGIN SETUP
 export const login = async (req: Request, res: Response): Promise<any> => {
   try {
-    // task 1 destructuring emaial and password
-    const { email, password_hash } = req.body;
-    if (!email || !password_hash) {
-      return res.status(400).json({
-        message: "Email, passoword are required",
-      });
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ message: "Email and password are required" });
     }
 
-    // task 2 finding the user in the database using email
     const existingUser = await prisma.user.findUnique({
       where: { email: email },
     });
-
     if (!existingUser) {
-      return res.status(400).json({
-        message: "Email not available, please create new account",
-      });
+      return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    // checking if the password matches
-    const isMatch = await bcrypt.compare(
-      password_hash,
-      existingUser.password_hash,
-    );
+    const isMatch = await bcrypt.compare(password, existingUser.password_hash);
     if (!isMatch) {
-      return res.status(400).json({
-        message: "Invalid credentials",
-      });
+      return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    //generating token
     const token = jwt.sign(
-      {
-        id: existingUser.id,
-      },
+      { id: existingUser.id },
       process.env.JWT_SECRET as string,
       { expiresIn: "7d" },
     );
 
     return res.status(200).json({
       message: "Login successful",
+      token: token,
       user: {
         id: existingUser.id,
         email: existingUser.email,
@@ -108,19 +91,17 @@ export const login = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-//GETTING USER PROFILE DATA
 export const GetUserProfile = async (
   req: AuthRequest,
   res: Response,
 ): Promise<any> => {
   try {
-    // const email = Array.isArray(req.params.email) ? req.params.email[0] : req.params.email;
-    // const email = req.params.email as string;
     const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized request" });
     }
+
     const patient = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -133,13 +114,13 @@ export const GetUserProfile = async (
         created_at: true,
       },
     });
-    if (!patient) {
+
+    if (!patient)
       return res.status(404).json({ message: "User not available" });
-    }
 
     return res
       .status(200)
-      .json({ message: "Welcome to your profile", patient: patient });
+      .json({ message: "Profile loaded", patient: patient });
   } catch (error) {
     console.error("Fetching profile failed", error);
     return res

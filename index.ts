@@ -1,8 +1,8 @@
-import express from 'express';
+import express, {Application, Request, Response} from 'express';
+import apiRoutes from "./routes/service.routes.js"
 import dotenv from 'dotenv';
 import cors from "cors";
 import helmet from 'helmet';
-import AuthRoute from './routes/auth.routes.js'
 
 dotenv.config();
 
@@ -13,7 +13,7 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
-app.use('/api/auth', AuthRoute);
+app.use('/api', apiRoutes);
 
 app.get('/', (req, res) => {
     res.send('MedRemind API is officially running in TypeScript!')
